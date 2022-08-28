@@ -6,9 +6,10 @@ import (
 ) 
 
 type SettingsReaderOfFile struct {
-	context.Context
+	Ctx context.Context
 	IReaderOfConf
-	SizeBuffer int64
+	BufferSize int64
+	OptionsSize int64
 	Writer io.Writer
 }
 
