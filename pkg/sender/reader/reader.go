@@ -1,8 +1,6 @@
 package reader
 
 import (
-	"context"
-	"os"
 	"io"
 	"sync"
 	"log"
@@ -10,51 +8,56 @@ import (
 	"fmt"
 
 	common "files/pkg/common"
+	models "files/pkg/models"
 )
 
-func Read(ctx context.Context, bufferSize int64, optionsSize int64, fileSize int64, file *os.File, errCh chan<- error, writer io.Writer) {
+func Read(cnf models.ConfForReader) {
+
 	var storage = sync.Pool{New: func() interface{} {
-		lines := make([]byte, bufferSize + optionsSize)
+		lines := make([]byte, cnf.BufferSize + cnf.OptionsSize)
 		return lines
 	}}
 	log.Println("Пулл с памятю инициализоварован")
 
-	r := bufio.NewReader(file)
+	defer cnf.File.Close()
+
+	r := bufio.NewReader(cnf.File)
+
 	var currentOffset int64
 	const FIRST int16 = 1
 	const LAST int16 = 2
 	const OTHER int16 = 0
 	var index int16
-	for currentOffset = 0; currentOffset <= fileSize; currentOffset += bufferSize {
-		// можно еще сюда добавить отмену пользователем
-		
+
+	for currentOffset = 0; currentOffset <= cnf.FileSize; currentOffset += cnf.BufferSize {		
 		select {
-		case <-ctx.Done():
-			errCh <- fmt.Errorf("$Был отменен контекст, read() завершило выполнение")
+		case <-cnf.Ctx.Done():
+			cnf.ErrCh <- fmt.Errorf("$Был отменен контекст, read() завершило выполнение")
 			return
 		default:
-			nSeek, err := file.Seek(currentOffset, 0)
+			nSeek, err := cnf.File.Seek(currentOffset, 0)
 			if err != nil {
-				errCh <- fmt.Errorf("$Ошибка при сдвиге в файле=%s, err:=%v", file.Name(), err)
+				cnf.ErrCh <- fmt.Errorf("$Ошибка при сдвиге в файле=%s, err:=%v", cnf.File.Name(), err)
 				return
 			}
 			log.Println("nSeek:", nSeek)
 
 			poolStorage := storage.Get().([]byte)
-			nBytes, err := r.Read(poolStorage[:len(poolStorage)-int(optionsSize)])
-			log.Println("Сдвиг в файле=", file.Name(), " состовляет n:", nSeek)
+			nBytes, err := r.Read(poolStorage[:len(poolStorage)-int(cnf.OptionsSize)])
+			
+			log.Println("Сдвиг в файле=", cnf.File.Name(), " состовляет n:", nSeek)
 
 			if nBytes == 0 {
-				errCh <- fmt.Errorf("$Файл весит 0 bytes или был достигнут конец файла")
+				cnf.ErrCh <- fmt.Errorf("$Файл весит 0 bytes или был достигнут конец файла")
 				return
 			} else if err == io.EOF {
-				errCh <- fmt.Errorf("$Конец файла=%s", file.Name())
+				cnf.ErrCh <- fmt.Errorf("$Конец файла=%s", cnf.File.Name())
 				return
 			} else if err != nil {
-				errCh <- fmt.Errorf("$Ошибка при чтении файла=%s, err:=%v", file.Name(), err)
+				cnf.ErrCh <- fmt.Errorf("$Ошибка при чтении файла=%s, err:=%v", cnf.File.Name(), err)
 				return
 			}
-			log.Println("Прочиталось", nBytes, " bytes, с файла=", file.Name(),
+			log.Println("Прочиталось", nBytes, " bytes, с файла=", cnf.File.Name(),
 				", при этом сдвиг составил=", currentOffset)
 
 			buf := poolStorage[:nBytes]
@@ -62,15 +65,15 @@ func Read(ctx context.Context, bufferSize int64, optionsSize int64, fileSize int
 
 			if currentOffset == 0 {
 				index = FIRST
-			} else if currentOffset + bufferSize > fileSize {
+			} else if currentOffset + cnf.BufferSize > cnf.FileSize {
 				index = LAST
 			} else {
 				index = OTHER
 			}
-			options := common.ConstructOptions(file.Name(), currentOffset, index)
+			options := common.ConstructOptions(cnf.File.Name(), currentOffset, index, cnf.FileSize, cnf.BufferSize)
 			buf = append(buf, options...)
-			writer.Write(buf)
-			log.Println("Было отправлено в канал:", len(poolStorage), ", это:", currentOffset + int64(nBytes), "/", fileSize)
+			cnf.Writer.Write(buf)
+			log.Println("Было отправлено в канал:", len(poolStorage), ", это:", currentOffset + int64(nBytes), "/", cnf.FileSize)
 		}
 	} 
 }
