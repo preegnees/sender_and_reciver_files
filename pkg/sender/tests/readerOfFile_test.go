@@ -13,7 +13,7 @@ import (
 	assert "github.com/stretchr/testify/assert"
 
 	models "files/pkg/models"
-	rof "files/pkg/sender/readFile"
+	readFile "files/pkg/sender/readFile"
 )
 
 type readerOfConfTrue struct{}
@@ -41,12 +41,11 @@ func TestReadFile_TrueSettings(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pr, pw := io.Pipe()
 	var settings models.SettingsReaderOfFile = models.SettingsReaderOfFile{
-		Context:       ctx,
+		Ctx:       ctx,
 		IReaderOfConf: &readerOfConfTrue{},
-		SizeBuffer:    100 * 1024 * 1024, // 200 * 1024
+		BufferSize:    100 * 1024 * 1024, // 200 * 1024
 		Writer:        pw,
 	}
-	r := rof.ReaderOfFile{}
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -66,7 +65,7 @@ func TestReadFile_TrueSettings(t *testing.T) {
 			}
 		}
 	}()
-	err := r.ReadFile(settings)
+	err := readFile.ReadFile(settings)
 	t.Log(err)
 	pw.Close()
 	wg.Wait()
@@ -78,13 +77,12 @@ func TestReadFile_TrueSettings(t *testing.T) {
 func TestReadFile_FalseSettings_FalseConf(t *testing.T) {
 	_, pw := io.Pipe()
 	var settings models.SettingsReaderOfFile = models.SettingsReaderOfFile{
-		Context:       context.Background(),
+		Ctx:       context.Background(),
 		IReaderOfConf: &readerOfConfFalse{},
-		SizeBuffer:    8 * 1024,
+		BufferSize:    8 * 1024,
 		Writer:      pw,
 	}
-	r := rof.ReaderOfFile{}
-	err := r.ReadFile(settings)
+	err := readFile.ReadFile(settings)
 	log.Println(err)
 	assert.True(t, err != nil)
 }
