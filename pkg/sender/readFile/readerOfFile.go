@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-
 	models "files/pkg/models"
 	reader "files/pkg/sender/reader"
+	common "files/pkg/common"
 )
 
 type ReaderOfFile struct {
@@ -22,15 +22,9 @@ type ReaderOfFile struct {
 func ReadFile(settings models.SettingsReaderOfFile) error {
 	log.Print("Настройки: ", settings)
 
-	conf, err := settings.IReaderOfConf.Get()
+	file, err := os.Open(settings.PathToFile)
 	if err != nil {
-		return fmt.Errorf("$Ошибка при получении конфига, err:=%v", err)
-	}
-	log.Println("conf:", conf)
-
-	file, err := os.Open(conf.Path)
-	if err != nil {
-		return fmt.Errorf("$Ошибка при открытии файла, path=%s, err:=%v", conf.Path, err)
+		return fmt.Errorf("$Ошибка при открытии файла, path=%s, err:=%v", settings.PathToFile, err)
 	}
 	defer file.Close()
 	log.Println("Файл успешно открылся, file:", file)
@@ -41,22 +35,27 @@ func ReadFile(settings models.SettingsReaderOfFile) error {
 	}
 	log.Println("Размер файла состовляет, size:", stat.Size(), "bytes")
 
-	numberOfDivisions := (stat.Size() / settings.BufferSize) + 1 // должнг быть проверено на тот случай, что buffer не кратно 8
-
-	log.Println("Колличество делений файла состовляет, numberOfDivisions=", numberOfDivisions)
-
-	ctxForRead, cansel := context.WithCancel(context.Background())
+	ctxForRead, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error)
-	go reader.Read(ctxForRead, settings.BufferSize, settings.OptionsSize, stat.Size(), file, errCh, settings.Writer)
+	relativePath := common.GetRelativePath(settings.ParentDir, settings.PathToFile)
+	cnf := models.ConfForReader{
+		Ctx: ctxForRead,
+		BufferSize: settings.BufferSize,
+		OptionsSize: settings.OptionsSize,
+		FileSize: stat.Size(),
+		File: file,
+		RelativePath: relativePath,
+		ErrCh: errCh,
+		Writer: settings.Writer,
+	}
+	go reader.Read(cnf)
 
-	for {
-		select {
-		case <-settings.Ctx.Done():
-			cansel()
-			return fmt.Errorf("$Была вызвана отмена контекста, завершилось выполнение функции read()")
-		case err:= <-errCh:
-			cansel()
-			return fmt.Errorf("$Ошибка при работы метода read(), err:=%v", err)
-		}
+	select {
+	case <-settings.Ctx.Done():
+		cancel()
+		return fmt.Errorf("$Была вызвана отмена контекста, завершилось выполнение функции read()")
+	case err:= <-errCh:
+		cancel()
+		return fmt.Errorf("$Ошибка при работы метода read(), err:=%v", err)
 	}
 }
