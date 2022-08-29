@@ -15,17 +15,23 @@ type SettingsReaderOfFile struct {
 	Writer      io.Writer
 }
 
+type SettingsWriterToFile struct {
+	Ctx       context.Context
+	ParentDir string
+	Reader    io.Reader
+}
+
 type IReaderOfFile interface {
 	ReadFile(SettingsReaderOfFile) error
 }
 
 type ConfForReader struct {
-	Ctx context.Context
-	BufferSize int64
-	OptionsSize int64
-	FileSize int64
-	File *os.File
+	Ctx          context.Context
+	BufferSize   int64
+	OptionsSize  int64
+	FileSize     int64
+	File         *os.File
 	RelativePath string
-	ErrCh chan<- error
-	Writer io.Writer
+	ErrCh        chan<- error
+	Writer       io.Writer
 }
