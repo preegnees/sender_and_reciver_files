@@ -18,7 +18,6 @@ type ReaderOfFile struct {
 	end bool
 }
 
-
 func ReadFile(settings models.SettingsReaderOfFile) error {
 	log.Print("Настройки: ", settings)
 
