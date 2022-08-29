@@ -11,6 +11,10 @@ import (
 	models "files/pkg/models"
 )
 
+const FIRST int16 = 1
+const LAST int16 = 2
+const OTHER int16 = 0
+
 func Read(cnf models.ConfForReader) {
 
 	var storage = sync.Pool{New: func() interface{} {
@@ -24,9 +28,6 @@ func Read(cnf models.ConfForReader) {
 	r := bufio.NewReader(cnf.File)
 
 	var currentOffset int64
-	const FIRST int16 = 1
-	const LAST int16 = 2
-	const OTHER int16 = 0
 	var index int16
 
 	for currentOffset = 0; currentOffset <= cnf.FileSize; currentOffset += cnf.BufferSize {		
