@@ -23,11 +23,9 @@ func Read(cnf models.ConfForReader) {
 	}}
 	log.Println("Пулл с памятю инициализоварован")
 
-	defer cnf.File.Close()
-
 	r := bufio.NewReader(cnf.File)
 
-	var currentOffset int64
+	var currentOffset int64 = cnf.CurrentOffset
 	var index int16
 
 	for currentOffset = 0; currentOffset <= cnf.FileSize; currentOffset += cnf.BufferSize {		
@@ -71,10 +69,12 @@ func Read(cnf models.ConfForReader) {
 			} else {
 				index = OTHER
 			}
-			options := common.ConstructOptions(cnf.File.Name(), currentOffset, index, cnf.FileSize, cnf.BufferSize)
+			options := common.ConstructOptions(cnf.RelativePath, currentOffset, index, cnf.FileSize, cnf.BufferSize)
+			log.Printf("Сообщение, которое будет отправлено: %s\n", buf)
 			buf = append(buf, options...)
 			cnf.Writer.Write(buf)
 			log.Println("Было отправлено в канал:", len(poolStorage), ", это:", currentOffset + int64(nBytes), "/", cnf.FileSize)
 		}
 	} 
+	close(cnf.ErrCh)
 }
