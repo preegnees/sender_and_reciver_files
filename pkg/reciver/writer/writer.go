@@ -1,9 +1,11 @@
 package writer
 
 import (
-	"os"
 	"fmt"
-
+	"log"
+	"os"
+	"strings"
+	"path/filepath"
 )
 
 type ControllerOfFiles struct {
@@ -19,18 +21,31 @@ func New(parDir string) *ControllerOfFiles {
 	} 
 }
 
+
 func (cof *ControllerOfFiles) WriteToFile(path string, data []byte) (nb int, err error) {
 	file, ok := cof.storage[path]
 
 	if !ok {
+
+		pathArr := strings.Split(path, string(filepath.Separator))	
+		dir := strings.Join(pathArr[:len(pathArr)-1], string(filepath.Separator))
+		err := os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			return 0, fmt.Errorf("$Ошибка при создании каталога:%s, err:=%v", dir, err)
+		}
+
 		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0777)
 		if err != nil {
-			return 0, fmt.Errorf("$Ошибка при открытии файла (файла не было в хронилище), err:=%v", err)
+			return 0, fmt.Errorf("$Ошибка при открытии файла, которого не было в хранилище, err:=%v", err)
 		}
 		cof.storage[path] = f
 		file = f
+		log.Println("Файл был открыт и закжширован")
+	} else {
 
+		log.Printf("Файл по пути:%s, был взят из кэша", path)
 	}
+	log.Printf("Данные который приходят:%s\n", data)
 	
 	n, err := file.Write(data)
 	if err != nil {
