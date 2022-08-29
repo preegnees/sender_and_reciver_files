@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
+	common "files/pkg/common"
 	models "files/pkg/models"
 	reader "files/pkg/sender/reader"
-	common "files/pkg/common"
 )
 
 type ReaderOfFile struct {
@@ -43,10 +43,12 @@ func ReadFile(settings models.SettingsReaderOfFile) error {
 		OptionsSize: settings.OptionsSize,
 		FileSize: stat.Size(),
 		File: file,
+		CurrentOffset: settings.CurrentOffset,
 		RelativePath: relativePath,
 		ErrCh: errCh,
 		Writer: settings.Writer,
 	}
+
 	go reader.Read(cnf)
 
 	select {
@@ -55,6 +57,9 @@ func ReadFile(settings models.SettingsReaderOfFile) error {
 		return fmt.Errorf("$Была вызвана отмена контекста, завершилось выполнение функции read()")
 	case err:= <-errCh:
 		cancel()
-		return fmt.Errorf("$Ошибка при работы метода read(), err:=%v", err)
+		if err != nil {
+			return fmt.Errorf("$Ошибка при работы метода read(), err:=%v", err)
+		}
+		return nil
 	}
 }
