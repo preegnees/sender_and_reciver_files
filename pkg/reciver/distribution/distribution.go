@@ -22,7 +22,7 @@ func New(controller *controller.ControllerOfFiles) *FileDistributor {
 var _ io.Writer = (*FileDistributor)(nil)
 
 func (r *FileDistributor) Write(buf []byte) (n int, err error) {
-	fmt.Printf("%s\n", buf)
+	fmt.Printf("Buf: %s\n", buf)
 	offset, path, index, sizeOpt, sizeFile, sizeBuffer := common.DeconstructOptions(buf)
 	log.Println("offset:", offset)
 	log.Println("path:", path)
